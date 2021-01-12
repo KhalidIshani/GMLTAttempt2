@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:path_provider/path_provider.dart';
+import 'PathGeneration.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'server.dart';
 //initialize new maze
 maze maze1= new maze();
 Color color1 = Colors.grey;
@@ -13,7 +16,7 @@ var icon = Icons.check;
 var image="assets/greencheck.jpg";
 Stopwatch clock = new Stopwatch(); //initialize new stopwatch that will be used to record times of user's moves
 List moves = [];
-List correctMoves = [];
+Set <int> correctMoves = {};
 List<dynamic> times=[];
 List errors = [];
 //temporary test path - going to change to make dynamically generated
@@ -58,6 +61,7 @@ class gameButton extends StatefulWidget {
     if(this.onPath==1)
       {
         return true;
+
       }
     else
       {
@@ -87,7 +91,7 @@ class gameButton extends StatefulWidget {
       }
     else
       {
-        if(this.testIfLegal(lastMove) & this.testOnPath() & !(correctMoves.contains(this.id)))
+        if(this.testIfLegal(lastMove) & (this.id==path[correctMoves.length]))
           {
             lastMove = this.id;
             return true;
@@ -108,54 +112,6 @@ class gameButton extends StatefulWidget {
 }
 
 class gameButtonState extends State<gameButton> {
-
-  //code below used to dynamically generate json files of the user's moves
-  File jsonFile;
-  Directory dir;
-  String fileName = "Maze task attempt $attemptNum - $dateTime";
-  bool fileExists = false;
-  Map<String, dynamic> fileContent;
-
-  @override
-  void initState() {
-    super.initState();
-    getExternalStorageDirectory().then((Directory directory) {
-      dir = directory;
-      jsonFile = new File(dir.path + "/" + fileName);
-      fileExists = jsonFile.existsSync();
-      if (fileExists) this.setState(() =>
-      fileContent = json.decode(jsonFile.readAsStringSync()));
-    });
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
-  //if file doesn't exist need to create new json file
-  void createFile(Map<String, dynamic> content, Directory dir,
-      String fileName) {
-    File file = new File(dir.path + "/" + fileName);
-    file.createSync();
-    fileExists = true;
-    file.writeAsStringSync(json.encode(content));
-  }
-
-  //if file w/t same name exists, need to edit file instead of creating new one
-  void writeToFile(String key, dynamic value) {
-    Map<String, dynamic> content = {key: value};
-    if (fileExists) {
-      Map<String, dynamic> jsonFileContent = json.decode(
-          jsonFile.readAsStringSync());
-      jsonFileContent.addAll(content);
-      jsonFile.writeAsStringSync(json.encode(jsonFileContent));
-    } else {
-      createFile(content, dir, fileName);
-    }
-    this.setState(() => fileContent = json.decode(jsonFile.readAsStringSync()));
-    print(fileContent);
-  }
 
   Color color;
 
@@ -181,9 +137,6 @@ class gameButtonState extends State<gameButton> {
     if (consecErrors >= 3) {
       timeOut = true;
       PressNotification(id: lastMove, color: Colors.green).dispatch(context);
-      Timer(Duration(milliseconds: 100), () {
-        PressNotification(id: lastMove, color: Colors.grey).dispatch(context);
-      });
     }
 
     else {
@@ -195,13 +148,19 @@ class gameButtonState extends State<gameButton> {
   {
     //reinitialize variables to default
     moves = [];
-    correctMoves = [];
+    correctMoves = {};
     times=[];
     errors = [];
     consecErrors = 0;
     lastMove = 0; //records last CORRECT move of user
     lastMoveIncorrect = true;
     clock.reset();
+  }
+
+  void newMaze()
+  {
+    fillMaze();
+    resetGame();
   }
 
   //function executed when any button pressed
@@ -219,7 +178,7 @@ class gameButtonState extends State<gameButton> {
         maze1.button_grid[widget.id].color = Colors.green;
         maze1.button_grid[widget.id].displayImage = true;
         icon = Icons.check;
-        Timer(Duration(milliseconds: 100), () {
+        Timer(Duration(milliseconds: 75), () {
           if (this.mounted) {
             setState(() {
               if(widget.id==99)
@@ -238,12 +197,9 @@ class gameButtonState extends State<gameButton> {
         });
         //ending condition- if move is correct AND the last square on the path then game should display message congratulating them
         if(widget.id==99) {
-
-          //when user reaches end of maze successfully all the information gathered on their run should be written to a json file
-          writeToFile("Moves", moves);
-          writeToFile("Path", path);
-          writeToFile("Times", times);
-          writeToFile("Errors", errors);
+          var dict = {"path":path, "moves": moves, "errors": errors, "times": times};
+          String data = json.encode(dict);
+          createData("GMLT", "KI", data, "1.0");
           attemptNum++;
           showDialog(
               context: context,
@@ -257,8 +213,17 @@ class gameButtonState extends State<gameButton> {
                             resetGame();
                             Navigator.pop(context);
                           },
-                          child: new Text("Play Again")
+                          child: new Text("Same Maze")
+                      ),
+
+                      new FlatButton(
+                          onPressed: () {
+                            newMaze();
+                            Navigator.pop(context);
+                          },
+                          child: new Text("New Maze")
                       )
+
                     ]
                 );
               }
@@ -269,13 +234,13 @@ class gameButtonState extends State<gameButton> {
       }
       else //this code runs if move is INCORRECT- if move is incorrect then square turns red and displays an X
       {
-        //keep track of how many consecutive erros user has made- if 3 then game should show next correct move
+        //keep track of how many consecutive errors user has made- if 3 then game should show next correct move
         consecErrors++;
         errors.add("incorrect");
         maze1.button_grid[widget.id].color = Colors.red;
         maze1.button_grid[widget.id].displayImage=true;
         icon = Icons.clear;
-        Timer(Duration(milliseconds: 100), () {
+        Timer(Duration(milliseconds: 75), () {
           if(this.mounted) {
             setState(() {
               maze1.button_grid[widget.id].color = Colors.purple;
