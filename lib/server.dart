@@ -72,4 +72,8 @@ void main() {
   String test = json.encode(dict);
 
   createData("khalid", "ziyan", "hello", test);
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 9c446ed3c5e559071afd229826147eacebce3213

@@ -106,4 +106,8 @@ List genPath(List mat) {
   return path;
 }
 
+<<<<<<< HEAD
 List<int>mat= [for(var i=0; i<100;i++) i];
+=======
+List<int>mat= [for(var i=0; i<100;i++) i];
+>>>>>>> 9c446ed3c5e559071afd229826147eacebce3213
